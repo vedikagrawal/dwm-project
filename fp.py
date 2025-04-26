@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from collections import defaultdict
+from collections import defaultdict, Counter
 import matplotlib.pyplot as plt
 
 # ===================== FP-Growth Code =====================
@@ -21,20 +21,20 @@ class FPNode:
 
 def build_header_table(transactions, min_support_count):
     item_counts = defaultdict(int)
-    for transaction in transactions:
+    for transaction, count in transactions:
         for item in transaction:
-            item_counts[item] += 1
-    return {item: [count, None] for item, count in item_counts.items() if count >= min_support_count}
+            item_counts[item] += count
+    return {item: [cnt, None] for item, cnt in item_counts.items() if cnt >= min_support_count}
 
 def sort_items(transaction, header_table):
     return sorted([item for item in transaction if item in header_table],
                   key=lambda item: header_table[item][0], reverse=True)
 
-def insert_tree(transaction, root, header_table):
+def insert_tree(transaction, root, header_table, count):
     current_node = root
     for item in transaction:
         if item not in current_node.children:
-            new_node = FPNode(item, 1, current_node)
+            new_node = FPNode(item, count, current_node)
             current_node.children[item] = new_node
             if header_table[item][1] is None:
                 header_table[item][1] = new_node
@@ -44,7 +44,7 @@ def insert_tree(transaction, root, header_table):
                     node = node.link
                 node.link = new_node
         else:
-            current_node.children[item].increment(1)
+            current_node.children[item].increment(count)
         current_node = current_node.children[item]
 
 def construct_fp_tree(transactions, min_support_count):
@@ -52,9 +52,10 @@ def construct_fp_tree(transactions, min_support_count):
     if len(header_table) == 0:
         return None, None
     root = FPNode(None, 1, None)
-    for transaction in transactions:
+    for transaction, count in transactions:
         sorted_items = sort_items(transaction, header_table)
-        insert_tree(sorted_items, root, header_table)
+        if sorted_items:
+            insert_tree(sorted_items, root, header_table, count)
     return root, header_table
 
 def ascend_fp_tree(node):
@@ -81,8 +82,8 @@ def mine_fp_tree(header_table, prefix, frequent_itemsets, min_support_count):
         frequent_itemsets.append((new_freq_set, count))
         conditional_patterns = find_prefix_paths(base_item, node)
         conditional_transactions = []
-        for path, count in conditional_patterns:
-            conditional_transactions.extend([path] * count)
+        for path, cnt in conditional_patterns:
+            conditional_transactions.append((path, cnt))
         conditional_tree, new_header_table = construct_fp_tree(conditional_transactions, min_support_count)
         if new_header_table:
             mine_fp_tree(new_header_table, new_freq_set, frequent_itemsets, min_support_count)
@@ -94,14 +95,18 @@ def generate_association_rules(frequent_itemsets, min_confidence_percent):
     for itemset, support in frequent_itemsets:
         if len(itemset) > 1:
             items = list(itemset)
-            for i in range(len(items)):
-                antecedent = frozenset([items[i]])
-                consequent = frozenset(itemset) - antecedent
-                if consequent:
-                    confidence = itemset_support[frozenset(itemset)] / itemset_support[antecedent]
-                    if confidence >= min_confidence:
-                        rules.append((set(antecedent), set(consequent), round(confidence*100, 2), support))
+            for i in range(1, len(items)):
+                antecedents = combinations(items, i)
+                for antecedent in antecedents:
+                    antecedent = frozenset(antecedent)
+                    consequent = frozenset(itemset) - antecedent
+                    if consequent and antecedent in itemset_support:
+                        confidence = itemset_support[frozenset(itemset)] / itemset_support[antecedent]
+                        if confidence >= min_confidence:
+                            rules.append((set(antecedent), set(consequent), round(confidence*100, 2), support))
     return rules
+
+from itertools import combinations
 
 # ===================== Streamlit App =====================
 st.set_page_config(page_title="Market Basket Analysis - FP-Growth", layout="wide")
@@ -122,7 +127,10 @@ if uploaded_file:
     column_options = df.columns.tolist()
     item_col = st.selectbox("Select the column containing items per transaction:", column_options)
 
-    transactions = df[item_col].dropna().astype(str).apply(lambda x: x.split(',')).tolist()
+    raw_transactions = df[item_col].dropna().astype(str).apply(lambda x: frozenset(x.strip().split(',')))
+    transaction_counter = Counter(raw_transactions)
+
+    transactions = [(list(items), count) for items, count in transaction_counter.items()]
 
     min_support_count = st.number_input("Enter Minimum Support (number of transactions)", min_value=1, value=2)
     min_confidence_percent = st.number_input("Enter Minimum Confidence (%)", min_value=1, max_value=100, value=60)
