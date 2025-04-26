@@ -1,7 +1,9 @@
 import streamlit as st
 import pandas as pd
-from collections import defaultdict, Counter
+from collections import defaultdict
 import matplotlib.pyplot as plt
+from itertools import combinations
+import math
 
 # ===================== FP-Growth Code =====================
 class FPNode:
@@ -21,9 +23,9 @@ class FPNode:
 
 def build_header_table(transactions, min_support_count):
     item_counts = defaultdict(int)
-    for transaction, count in transactions:
+    for transaction in transactions:
         for item in transaction:
-            item_counts[item] += count
+            item_counts[item] += 1
     return {item: [cnt, None] for item, cnt in item_counts.items() if cnt >= min_support_count}
 
 def sort_items(transaction, header_table):
@@ -52,10 +54,10 @@ def construct_fp_tree(transactions, min_support_count):
     if len(header_table) == 0:
         return None, None
     root = FPNode(None, 1, None)
-    for transaction, count in transactions:
+    for transaction in transactions:
         sorted_items = sort_items(transaction, header_table)
         if sorted_items:
-            insert_tree(sorted_items, root, header_table, count)
+            insert_tree(sorted_items, root, header_table, 1)  # Use 1 as count per transaction
     return root, header_table
 
 def ascend_fp_tree(node):
@@ -106,8 +108,6 @@ def generate_association_rules(frequent_itemsets, min_confidence_percent):
                             rules.append((set(antecedent), set(consequent), round(confidence*100, 2), support))
     return rules
 
-from itertools import combinations
-
 # ===================== Streamlit App =====================
 st.set_page_config(page_title="Market Basket Analysis - FP-Growth", layout="wide")
 st.title("🛒 Market Basket Analysis using FP-Growth")
@@ -116,8 +116,6 @@ st.markdown("""
 Upload a **Transaction CSV** and find **Frequent Itemsets** and **Association Rules**  
 using the **FP-Growth** algorithm!
 """)
-
-import math
 
 uploaded_file = st.file_uploader("Upload Transaction CSV", type=["csv"])
 
