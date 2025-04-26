@@ -87,7 +87,8 @@ def mine_fp_tree(header_table, prefix, frequent_itemsets, min_support_count):
         if new_header_table:
             mine_fp_tree(new_header_table, new_freq_set, frequent_itemsets, min_support_count)
 
-def generate_association_rules(frequent_itemsets, min_confidence):
+def generate_association_rules(frequent_itemsets, min_confidence_percent):
+    min_confidence = min_confidence_percent / 100.0  # convert percentage to fraction
     rules = []
     itemset_support = {frozenset(itemset): support for itemset, support in frequent_itemsets}
     for itemset, support in frequent_itemsets:
@@ -99,7 +100,7 @@ def generate_association_rules(frequent_itemsets, min_confidence):
                 if consequent:
                     confidence = itemset_support[frozenset(itemset)] / itemset_support[antecedent]
                     if confidence >= min_confidence:
-                        rules.append((set(antecedent), set(consequent), confidence, support))
+                        rules.append((set(antecedent), set(consequent), round(confidence*100, 2), support))
     return rules
 
 # ===================== Streamlit App =====================
@@ -123,12 +124,8 @@ if uploaded_file:
 
     transactions = df[item_col].dropna().astype(str).apply(lambda x: x.split(',')).tolist()
 
-    min_support_percentage = st.number_input("Minimum Support (%)", min_value=1.0, max_value=100.0, value=10.0)
-    min_confidence_percentage = st.number_input("Minimum Confidence (%)", min_value=1.0, max_value=100.0, value=50.0)
-
-    total_transactions = len(transactions)
-    min_support_count = int((min_support_percentage / 100) * total_transactions)
-    min_confidence = min_confidence_percentage / 100
+    min_support_count = st.number_input("Enter Minimum Support (number of transactions)", min_value=1, value=2)
+    min_confidence_percent = st.number_input("Enter Minimum Confidence (%)", min_value=1, max_value=100, value=60)
 
     if st.button("Run FP-Growth"):
         root, header_table = construct_fp_tree(transactions, min_support_count)
@@ -165,13 +162,13 @@ if uploaded_file:
                     plt.title("Top Frequent Items")
                     st.pyplot(fig)
 
-            rules = generate_association_rules(frequent_itemsets, min_confidence)
+            rules = generate_association_rules(frequent_itemsets, min_confidence_percent)
 
             if rules:
                 rules_df = pd.DataFrame([(
-                    list(antecedent), list(consequent), round(confidence,2), support
+                    list(antecedent), list(consequent), confidence, support
                 ) for antecedent, consequent, confidence, support in rules],
-                columns=["Antecedent", "Consequent", "Confidence", "Support"])
+                columns=["Antecedent", "Consequent", "Confidence (%)", "Support"])
 
                 st.write("### Association Rules")
                 st.dataframe(rules_df)
