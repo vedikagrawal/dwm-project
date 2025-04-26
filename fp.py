@@ -9,7 +9,7 @@ import math
 class FPNode:
     id_counter = 0
 
-    def __init__(self, item_name, count, parent):
+    def _init_(self, item_name, count, parent):
         self.item_name = item_name
         self.count = count
         self.parent = parent
@@ -126,8 +126,8 @@ st.set_page_config(page_title="Dataset Analysis Using FP-Growth", layout="wide")
 st.title("Dataset Analysis using FP-Growth")
 
 st.markdown("""
-Upload a **Transaction CSV** and find **Frequent Itemsets** and **Association Rules**  
-using the **FP-Growth** algorithm
+Upload a *Transaction CSV* and find *Frequent Itemsets* and *Association Rules*  
+using the *FP-Growth* algorithm
 """)
 
 uploaded_file = st.file_uploader("Upload Transaction CSV", type=["csv"])
