@@ -1,10 +1,9 @@
-
 import streamlit as st
 import pandas as pd
 from collections import defaultdict
 import matplotlib.pyplot as plt
 
-# ===================== FP-Growth Code (From Your Notebook) =====================
+# ===================== FP-Growth Code =====================
 class FPNode:
     id_counter = 0
 
@@ -20,19 +19,16 @@ class FPNode:
     def increment(self, count):
         self.count += count
 
-
-def build_header_table(transactions, min_support):
+def build_header_table(transactions, min_support_count):
     item_counts = defaultdict(int)
     for transaction in transactions:
         for item in transaction:
             item_counts[item] += 1
-    return {item: [count, None] for item, count in item_counts.items() if count >= min_support}
-
+    return {item: [count, None] for item, count in item_counts.items() if count >= min_support_count}
 
 def sort_items(transaction, header_table):
     return sorted([item for item in transaction if item in header_table],
                   key=lambda item: header_table[item][0], reverse=True)
-
 
 def insert_tree(transaction, root, header_table):
     current_node = root
@@ -51,9 +47,8 @@ def insert_tree(transaction, root, header_table):
             current_node.children[item].increment(1)
         current_node = current_node.children[item]
 
-
-def construct_fp_tree(transactions, min_support):
-    header_table = build_header_table(transactions, min_support)
+def construct_fp_tree(transactions, min_support_count):
+    header_table = build_header_table(transactions, min_support_count)
     if len(header_table) == 0:
         return None, None
     root = FPNode(None, 1, None)
@@ -62,14 +57,12 @@ def construct_fp_tree(transactions, min_support):
         insert_tree(sorted_items, root, header_table)
     return root, header_table
 
-
 def ascend_fp_tree(node):
     path = []
     while node.parent is not None and node.parent.item_name is not None:
         node = node.parent
         path.append(node.item_name)
     return path[::-1]
-
 
 def find_prefix_paths(base_pattern, node):
     conditional_patterns = []
@@ -80,8 +73,7 @@ def find_prefix_paths(base_pattern, node):
         node = node.link
     return conditional_patterns
 
-
-def mine_fp_tree(header_table, prefix, frequent_itemsets, min_support):
+def mine_fp_tree(header_table, prefix, frequent_itemsets, min_support_count):
     sorted_items = sorted(header_table.items(), key=lambda x: x[1][0])
     for base_item, (count, node) in sorted_items:
         new_freq_set = prefix.copy()
@@ -91,19 +83,34 @@ def mine_fp_tree(header_table, prefix, frequent_itemsets, min_support):
         conditional_transactions = []
         for path, count in conditional_patterns:
             conditional_transactions.extend([path] * count)
-        conditional_tree, new_header_table = construct_fp_tree(conditional_transactions, min_support)
+        conditional_tree, new_header_table = construct_fp_tree(conditional_transactions, min_support_count)
         if new_header_table:
-            mine_fp_tree(new_header_table, new_freq_set, frequent_itemsets, min_support)
+            mine_fp_tree(new_header_table, new_freq_set, frequent_itemsets, min_support_count)
+
+def generate_association_rules(frequent_itemsets, min_confidence):
+    rules = []
+    itemset_support = {frozenset(itemset): support for itemset, support in frequent_itemsets}
+    for itemset, support in frequent_itemsets:
+        if len(itemset) > 1:
+            items = list(itemset)
+            for i in range(len(items)):
+                antecedent = frozenset([items[i]])
+                consequent = frozenset(itemset) - antecedent
+                if consequent:
+                    confidence = itemset_support[frozenset(itemset)] / itemset_support[antecedent]
+                    if confidence >= min_confidence:
+                        rules.append((set(antecedent), set(consequent), confidence, support))
+    return rules
 
 # ===================== Streamlit App =====================
 st.set_page_config(page_title="Market Basket Analysis - FP-Growth", layout="wide")
 st.title("🛒 Market Basket Analysis using FP-Growth")
 
 st.markdown("""
-This app allows you to upload a transaction dataset and run the **FP-Growth** algorithm to find frequent itemsets.
+Upload a **Transaction CSV** and find **Frequent Itemsets** and **Association Rules**  
+using the **FP-Growth** algorithm!
 """)
 
-# Upload CSV file
 uploaded_file = st.file_uploader("Upload Transaction CSV", type=["csv"])
 
 if uploaded_file:
@@ -111,46 +118,65 @@ if uploaded_file:
     st.write("### Uploaded Data")
     st.dataframe(df.head())
 
-    # Ask user to select the column that contains items
     column_options = df.columns.tolist()
-    item_col = st.selectbox("Select the column containing the list of items per transaction:", column_options)
+    item_col = st.selectbox("Select the column containing items per transaction:", column_options)
 
-    # Convert the item column to list of lists
     transactions = df[item_col].dropna().astype(str).apply(lambda x: x.split(',')).tolist()
 
-    min_sup = st.number_input("Minimum Support (count)", min_value=1, value=2)
+    min_support_percentage = st.number_input("Minimum Support (%)", min_value=1.0, max_value=100.0, value=10.0)
+    min_confidence_percentage = st.number_input("Minimum Confidence (%)", min_value=1.0, max_value=100.0, value=50.0)
+
+    total_transactions = len(transactions)
+    min_support_count = int((min_support_percentage / 100) * total_transactions)
+    min_confidence = min_confidence_percentage / 100
 
     if st.button("Run FP-Growth"):
-        root, header_table = construct_fp_tree(transactions, min_sup)
+        root, header_table = construct_fp_tree(transactions, min_support_count)
 
         if root is None:
             st.warning("No frequent items found with the given support.")
         else:
             frequent_itemsets = []
-            mine_fp_tree(header_table, set(), frequent_itemsets, min_sup)
+            mine_fp_tree(header_table, set(), frequent_itemsets, min_support_count)
 
-            # Convert to DataFrame
             result_df = pd.DataFrame([(list(items), support) for items, support in frequent_itemsets],
                                      columns=["Itemset", "Support"])
 
-            st.success(f"Found {len(result_df)} frequent itemsets!")
-            st.write("### Frequent Itemsets")
-            st.dataframe(result_df)
+            if result_df.empty:
+                st.warning("No frequent itemsets found.")
+            else:
+                st.success(f"Found {len(result_df)} frequent itemsets!")
+                st.write("### Frequent Itemsets")
+                st.dataframe(result_df)
 
-            # Plot top 10 frequent items
-            item_count = defaultdict(int)
-            for items, support in frequent_itemsets:
-                for item in items:
-                    item_count[item] += support
+                item_count = defaultdict(int)
+                for items, support in frequent_itemsets:
+                    for item in items:
+                        item_count[item] += support
 
-            top_items = sorted(item_count.items(), key=lambda x: x[1], reverse=True)[:10]
-            item_names = [x[0] for x in top_items]
-            item_support = [x[1] for x in top_items]
+                top_items = sorted(item_count.items(), key=lambda x: x[1], reverse=True)[:10]
+                if top_items:
+                    item_names = [x[0] for x in top_items]
+                    item_support = [x[1] for x in top_items]
 
-            fig, ax = plt.subplots()
-            ax.bar(item_names, item_support, color='skyblue')
-            plt.xticks(rotation=45)
-            plt.title("Top Frequent Items")
-            st.pyplot(fig)
+                    fig, ax = plt.subplots()
+                    ax.bar(item_names, item_support, color='skyblue')
+                    plt.xticks(rotation=45)
+                    plt.title("Top Frequent Items")
+                    st.pyplot(fig)
 
-            st.download_button("Download Results", result_df.to_csv(index=False), file_name="frequent_itemsets.csv")
+            rules = generate_association_rules(frequent_itemsets, min_confidence)
+
+            if rules:
+                rules_df = pd.DataFrame([(
+                    list(antecedent), list(consequent), round(confidence,2), support
+                ) for antecedent, consequent, confidence, support in rules],
+                columns=["Antecedent", "Consequent", "Confidence", "Support"])
+
+                st.write("### Association Rules")
+                st.dataframe(rules_df)
+
+                st.download_button("Download Frequent Itemsets", result_df.to_csv(index=False), file_name="frequent_itemsets.csv")
+                st.download_button("Download Association Rules", rules_df.to_csv(index=False), file_name="association_rules.csv")
+            else:
+                st.info("No association rules found with the given confidence.")
