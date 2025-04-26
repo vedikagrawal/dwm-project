@@ -7,7 +7,7 @@ import math
 
 # ===================== FP-Growth Logic with Tree Output =====================
 class FPNode:
-    def _init_(self, item_name, count, parent):
+    def __init__(self, item_name, count, parent):
         self.item_name = item_name
         self.count = count
         self.parent = parent
