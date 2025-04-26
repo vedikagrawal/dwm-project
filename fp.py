@@ -9,7 +9,7 @@ import math
 class FPNode:
     id_counter = 0
 
-    def _init_(self, item_name, count, parent):
+    def __init__(self, item_name, count, parent):  # Fixed constructor name
         self.item_name = item_name
         self.count = count
         self.parent = parent
