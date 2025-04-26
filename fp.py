@@ -21,88 +21,95 @@ class FPNode:
     def increment(self, count):
         self.count += count
 
-def build_header_table(transactions, min_support_count):
-    item_counts = defaultdict(int)
-    for transaction in transactions:
+class FPTree:
+    def __init__(self, transactions, min_support):
+        self.root = FPNode(None, 1, None)
+        self.min_support = min_support
+        self.header_table = self.build_header_table(transactions)
+        if self.header_table:
+            for transaction in transactions:
+                sorted_items = self.sort_items(transaction)
+                if sorted_items:
+                    self.insert_tree(sorted_items, self.root, 1)
+
+    def build_header_table(self, transactions):
+        item_counts = defaultdict(int)
+        for transaction in transactions:
+            for item in transaction:
+                item_counts[item] += 1
+        header_table = {item: [count, None] for item, count in item_counts.items() if count >= self.min_support}
+        return header_table
+
+    def sort_items(self, transaction):
+        return sorted([item for item in transaction if item in self.header_table],
+                      key=lambda item: self.header_table[item][0], reverse=True)
+
+    def insert_tree(self, transaction, root, count):
+        current_node = root
         for item in transaction:
-            item_counts[item] += 1
-    return {item: [cnt, None] for item, cnt in item_counts.items() if cnt >= min_support_count}
-
-def sort_items(transaction, header_table):
-    return sorted([item for item in transaction if item in header_table],
-                  key=lambda item: header_table[item][0], reverse=True)
-
-def insert_tree(transaction, root, header_table, count):
-    current_node = root
-    for item in transaction:
-        if item not in current_node.children:
-            new_node = FPNode(item, count, current_node)
-            current_node.children[item] = new_node
-            if header_table[item][1] is None:
-                header_table[item][1] = new_node
+            if item not in current_node.children:
+                new_node = FPNode(item, count, current_node)
+                current_node.children[item] = new_node
+                if self.header_table[item][1] is None:
+                    self.header_table[item][1] = new_node
+                else:
+                    node = self.header_table[item][1]
+                    while node.link:
+                        node = node.link
+                    node.link = new_node
             else:
-                node = header_table[item][1]
-                while node.link:
-                    node = node.link
-                node.link = new_node
-        else:
-            current_node.children[item].increment(count)
-        current_node = current_node.children[item]
+                current_node.children[item].increment(count)
+            current_node = current_node.children[item]
 
-def construct_fp_tree(transactions, min_support_count):
-    header_table = build_header_table(transactions, min_support_count)
-    if len(header_table) == 0:
-        return None, None
-    root = FPNode(None, 1, None)
-    for transaction in transactions:
-        sorted_items = sort_items(transaction, header_table)
-        if sorted_items:
-            insert_tree(sorted_items, root, header_table, 1)  # Each transaction counted once
-    return root, header_table
+    def tree_to_string(self, node):
+        result = []
+        for child in node.children.values():
+            subtree = self.tree_to_string(child)
+            result.append(f"<{child.item_name}:{child.count}" + (", " + subtree if subtree else "") + ">")
+        return ", ".join(result)
 
-def ascend_fp_tree(node):
-    path = []
-    while node.parent and node.parent.item_name is not None:
-        node = node.parent
-        path.append(node.item_name)
-    return path[::-1]
+    def build_conditional_tree(self, conditional_patterns):
+        transactions = []
+        for path, count in conditional_patterns:
+            transactions.extend([path] * count)
+        if not transactions:
+            return None
+        return FPTree(transactions, self.min_support)
 
-def find_prefix_paths(base_pattern, node):
-    conditional_patterns = []
-    while node:
-        path = ascend_fp_tree(node)
-        if path:
-            conditional_patterns.append((path, node.count))
-        node = node.link
-    return conditional_patterns
+    def mine_patterns(self):
+        patterns = {}
+        conditional_pattern_bases = {}
+        conditional_fp_trees = {}
+        frequent_patterns = {}
 
-def build_conditional_pattern_base(header_table, item):
-    node = header_table[item][1]
-    patterns = []
-    while node:
-        path = ascend_fp_tree(node)
-        if path:
-            patterns.append((path, node.count))
-        node = node.link
-    return patterns
+        items = sorted(self.header_table.items(), key=lambda x: x[1][0])
+        for item, (support, node) in items:
+            conditional_patterns = []
+            while node is not None:
+                path = []
+                parent = node.parent
+                while parent and parent.item_name is not None:
+                    path.append(parent.item_name)
+                    parent = parent.parent
+                if path:
+                    conditional_patterns.append((path[::-1], node.count))
+                node = node.link
 
-def construct_conditional_fp_tree(conditional_patterns, min_support_count):
-    transactions = []
-    for path, count in conditional_patterns:
-        for _ in range(count):
-            transactions.append(path)
-    return construct_fp_tree(transactions, min_support_count)
+            conditional_pattern_bases[item] = conditional_patterns
+            conditional_tree = self.build_conditional_tree(conditional_patterns)
+            conditional_fp_trees[item] = self.tree_to_string(conditional_tree.root) if conditional_tree else ""
 
-def mine_fp_tree(header_table, prefix, frequent_itemsets, min_support_count):
-    sorted_items = sorted(header_table.items(), key=lambda x: x[1][0])
-    for base_item, (count, node) in sorted_items:
-        new_freq_set = prefix.copy()
-        new_freq_set.add(base_item)
-        frequent_itemsets.append((new_freq_set, count))
-        conditional_patterns = find_prefix_paths(base_item, node)
-        conditional_tree, new_header_table = construct_conditional_fp_tree(conditional_patterns, min_support_count)
-        if new_header_table:
-            mine_fp_tree(new_header_table, new_freq_set, frequent_itemsets, min_support_count)
+            if conditional_tree:
+                _, _, subtree_patterns = conditional_tree.mine_patterns()
+                for pattern, count in subtree_patterns.items():
+                    full_pattern = tuple(list(pattern) + [item])
+                    patterns[full_pattern] = count
+                    frequent_patterns[full_pattern] = count
+
+            patterns[(item,)] = support
+            frequent_patterns[(item,)] = support
+
+        return conditional_pattern_bases, conditional_fp_trees, frequent_patterns
 
 # ===================== Association Rules =====================
 def generate_association_rules(frequent_itemsets, min_confidence_percent):
@@ -150,13 +157,14 @@ if uploaded_file:
     min_support_count = math.ceil((min_support_percent / 100) * total_transactions)
 
     if st.button("Run FP-Growth"):
-        root, header_table = construct_fp_tree(transactions, min_support_count)
+        fp_tree = FPTree(transactions, min_support_count)
 
-        if root is None:
+        if not fp_tree.header_table:
             st.warning("No frequent items found with the given support.")
         else:
-            frequent_itemsets = []
-            mine_fp_tree(header_table, set(), frequent_itemsets, min_support_count)
+            _, _, frequent_patterns = fp_tree.mine_patterns()
+
+            frequent_itemsets = [(set(pattern), support) for pattern, support in frequent_patterns.items()]
 
             result_df = pd.DataFrame([(list(items), support) for items, support in frequent_itemsets],
                                      columns=["Itemset", "Support"])
