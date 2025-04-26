@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pandas as pd
 from collections import defaultdict
@@ -153,4 +154,3 @@ if uploaded_file:
             st.pyplot(fig)
 
             st.download_button("Download Results", result_df.to_csv(index=False), file_name="frequent_itemsets.csv")
-
