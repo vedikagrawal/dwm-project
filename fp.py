@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
-from collections import defaultdict
 import matplotlib.pyplot as plt
+from collections import defaultdict
 from itertools import combinations
 import math
 
@@ -9,7 +9,7 @@ import math
 class FPNode:
     id_counter = 0
 
-    def __init__(self, item_name, count, parent):
+    def _init_(self, item_name, count, parent):
         self.item_name = item_name
         self.count = count
         self.parent = parent
@@ -57,12 +57,12 @@ def construct_fp_tree(transactions, min_support_count):
     for transaction in transactions:
         sorted_items = sort_items(transaction, header_table)
         if sorted_items:
-            insert_tree(sorted_items, root, header_table, 1)  # Use 1 as count per transaction
+            insert_tree(sorted_items, root, header_table, 1)  # Each transaction counted once
     return root, header_table
 
 def ascend_fp_tree(node):
     path = []
-    while node.parent is not None and node.parent.item_name is not None:
+    while node.parent and node.parent.item_name is not None:
         node = node.parent
         path.append(node.item_name)
     return path[::-1]
@@ -76,20 +76,22 @@ def find_prefix_paths(base_pattern, node):
         node = node.link
     return conditional_patterns
 
-# ===================== CPB & Conditional FP-Tree =====================
-def build_conditional_pattern_base(header_table, item, root):
-    conditional_patterns = []
+def build_conditional_pattern_base(header_table, item):
     node = header_table[item][1]
+    patterns = []
     while node:
         path = ascend_fp_tree(node)
         if path:
-            conditional_patterns.append((path, node.count))
+            patterns.append((path, node.count))
         node = node.link
-    return conditional_patterns
+    return patterns
 
 def construct_conditional_fp_tree(conditional_patterns, min_support_count):
-    conditional_tree, header_table = construct_fp_tree(conditional_patterns, min_support_count)
-    return conditional_tree, header_table
+    transactions = []
+    for path, count in conditional_patterns:
+        for _ in range(count):
+            transactions.append(path)
+    return construct_fp_tree(transactions, min_support_count)
 
 def mine_fp_tree(header_table, prefix, frequent_itemsets, min_support_count):
     sorted_items = sorted(header_table.items(), key=lambda x: x[1][0])
@@ -104,15 +106,14 @@ def mine_fp_tree(header_table, prefix, frequent_itemsets, min_support_count):
 
 # ===================== Association Rules =====================
 def generate_association_rules(frequent_itemsets, min_confidence_percent):
-    min_confidence = min_confidence_percent / 100.0  # convert percentage to fraction
+    min_confidence = min_confidence_percent / 100.0
     rules = []
     itemset_support = {frozenset(itemset): support for itemset, support in frequent_itemsets}
     for itemset, support in frequent_itemsets:
         if len(itemset) > 1:
             items = list(itemset)
             for i in range(1, len(items)):
-                antecedents = combinations(items, i)
-                for antecedent in antecedents:
+                for antecedent in combinations(items, i):
                     antecedent = frozenset(antecedent)
                     consequent = frozenset(itemset) - antecedent
                     if consequent and antecedent in itemset_support:
@@ -122,12 +123,12 @@ def generate_association_rules(frequent_itemsets, min_confidence_percent):
     return rules
 
 # ===================== Streamlit App =====================
-st.set_page_config(page_title="Dataset Analysis Using FP-Growth", layout="wide")
-st.title("Dataset Analysis using FP-Growth")
+st.set_page_config(page_title="FP-Growth Frequent Itemsets", layout="wide")
+st.title("FP-Growth Frequent Itemsets Mining")
 
 st.markdown("""
-Upload a *Transaction CSV* and find *Frequent Itemsets* and *Association Rules*  
-using the *FP-Growth* algorithm
+Upload a Transaction CSV and discover Frequent Itemsets and Association Rules  
+using the *FP-Growth* algorithm.
 """)
 
 uploaded_file = st.file_uploader("Upload Transaction CSV", type=["csv"])
@@ -140,7 +141,6 @@ if uploaded_file:
     column_options = df.columns.tolist()
     item_col = st.selectbox("Select the column containing items per transaction:", column_options)
 
-    # Correctly split the transaction strings into lists of items
     transactions = df[item_col].dropna().astype(str).apply(lambda x: x.split(',')).tolist()
 
     min_support_percent = st.number_input("Enter Minimum Support (%)", min_value=1, max_value=100, value=5)
