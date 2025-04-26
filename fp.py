@@ -117,6 +117,8 @@ Upload a **Transaction CSV** and find **Frequent Itemsets** and **Association Ru
 using the **FP-Growth** algorithm!
 """)
 
+import math
+
 uploaded_file = st.file_uploader("Upload Transaction CSV", type=["csv"])
 
 if uploaded_file:
@@ -127,13 +129,13 @@ if uploaded_file:
     column_options = df.columns.tolist()
     item_col = st.selectbox("Select the column containing items per transaction:", column_options)
 
-    raw_transactions = df[item_col].dropna().astype(str).apply(lambda x: frozenset(x.strip().split(',')))
-    transaction_counter = Counter(raw_transactions)
+    transactions = df[item_col].dropna().astype(str).apply(lambda x: x.split(',')).tolist()
 
-    transactions = [(list(items), count) for items, count in transaction_counter.items()]
-
-    min_support_count = st.number_input("Enter Minimum Support (number of transactions)", min_value=1, value=2)
+    min_support_percent = st.number_input("Enter Minimum Support (%)", min_value=1, max_value=100, value=5)
     min_confidence_percent = st.number_input("Enter Minimum Confidence (%)", min_value=1, max_value=100, value=60)
+
+    total_transactions = len(transactions)
+    min_support_count = math.ceil((min_support_percent / 100) * total_transactions)
 
     if st.button("Run FP-Growth"):
         root, header_table = construct_fp_tree(transactions, min_support_count)
