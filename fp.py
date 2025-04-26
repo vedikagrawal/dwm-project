@@ -76,28 +76,37 @@ def find_prefix_paths(base_pattern, node):
         node = node.link
     return conditional_patterns
 
+# ===================== CPB & Conditional FP-Tree =====================
+def build_conditional_pattern_base(header_table, item, root):
+    conditional_patterns = []
+    node = header_table[item][1]
+    while node:
+        path = ascend_fp_tree(node)
+        if path:
+            conditional_patterns.append((path, node.count))
+        node = node.link
+    return conditional_patterns
+
+def construct_conditional_fp_tree(conditional_patterns, min_support_count):
+    conditional_tree, header_table = construct_fp_tree(conditional_patterns, min_support_count)
+    return conditional_tree, header_table
+
 def mine_fp_tree(header_table, prefix, frequent_itemsets, min_support_count):
     sorted_items = sorted(header_table.items(), key=lambda x: x[1][0])
     for base_item, (count, node) in sorted_items:
         new_freq_set = prefix.copy()
         new_freq_set.add(base_item)
         frequent_itemsets.append((new_freq_set, count))
-
         conditional_patterns = find_prefix_paths(base_item, node)
-        conditional_transactions = []
-        for path, cnt in conditional_patterns:
-            conditional_transactions.append((path, cnt))
-
-        conditional_tree, new_header_table = construct_fp_tree(conditional_transactions, min_support_count)
+        conditional_tree, new_header_table = construct_conditional_fp_tree(conditional_patterns, min_support_count)
         if new_header_table:
             mine_fp_tree(new_header_table, new_freq_set, frequent_itemsets, min_support_count)
 
-
+# ===================== Association Rules =====================
 def generate_association_rules(frequent_itemsets, min_confidence_percent):
     min_confidence = min_confidence_percent / 100.0  # convert percentage to fraction
     rules = []
     itemset_support = {frozenset(itemset): support for itemset, support in frequent_itemsets}
-    
     for itemset, support in frequent_itemsets:
         if len(itemset) > 1:
             items = list(itemset)
@@ -106,23 +115,19 @@ def generate_association_rules(frequent_itemsets, min_confidence_percent):
                 for antecedent in antecedents:
                     antecedent = frozenset(antecedent)
                     consequent = frozenset(itemset) - antecedent
-                    
-                    if consequent:
-                        antecedent_support = itemset_support.get(antecedent, 0)
-                        if antecedent_support > 0:  # Prevent division by zero
-                            confidence = support / antecedent_support
-                            if confidence >= min_confidence:
-                                rules.append((set(antecedent), set(consequent), round(confidence * 100, 2), support))
+                    if consequent and antecedent in itemset_support:
+                        confidence = itemset_support[frozenset(itemset)] / itemset_support[antecedent]
+                        if confidence >= min_confidence:
+                            rules.append((set(antecedent), set(consequent), round(confidence*100, 2), support))
     return rules
 
-
 # ===================== Streamlit App =====================
-st.set_page_config(page_title="Market Basket Analysis - FP-Growth", layout="wide")
-st.title("🛒 Market Basket Analysis using FP-Growth")
+st.set_page_config(page_title="Dataset Analysis Using FP-Growth", layout="wide")
+st.title("Dataset Analysis using FP-Growth")
 
 st.markdown("""
 Upload a **Transaction CSV** and find **Frequent Itemsets** and **Association Rules**  
-using the **FP-Growth** algorithm!
+using the **FP-Growth** algorithm
 """)
 
 uploaded_file = st.file_uploader("Upload Transaction CSV", type=["csv"])
