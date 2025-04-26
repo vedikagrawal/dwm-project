@@ -9,7 +9,7 @@ import math
 class FPNode:
     id_counter = 0
 
-    def __init__(self, item_name, count, parent):  # Fixed constructor name
+    def __init__(self, item_name, count, parent):
         self.item_name = item_name
         self.count = count
         self.parent = parent
@@ -140,6 +140,7 @@ if uploaded_file:
     column_options = df.columns.tolist()
     item_col = st.selectbox("Select the column containing items per transaction:", column_options)
 
+    # Correctly split the transaction strings into lists of items
     transactions = df[item_col].dropna().astype(str).apply(lambda x: x.split(',')).tolist()
 
     min_support_percent = st.number_input("Enter Minimum Support (%)", min_value=1, max_value=100, value=5)
