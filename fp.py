@@ -64,55 +64,61 @@ class FPTree:
                 current_node.children[item].increment(count)
             current_node = current_node.children[item]
 
-    def tree_to_string(self, node):
-        result = []
-        for child in node.children.values():
-            subtree = self.tree_to_string(child)
-            result.append(f"<{child.item_name}:{child.count}" + (", " + subtree if subtree else "") + ">")
-        return ", ".join(result)
-
     def build_conditional_tree(self, conditional_patterns):
+        item_counts = defaultdict(int)
+        for path, count in conditional_patterns:
+            for item in path:
+                item_counts[item] += count
+
+        # Now filter items by min_support
+        item_counts = {item: cnt for item, cnt in item_counts.items() if cnt >= self.min_support}
+
+        if not item_counts:
+            return None
+
         transactions = []
         for path, count in conditional_patterns:
-            transactions.extend([path] * count)
-        if not transactions:
-            return None
-        return FPTree(transactions, self.min_support)
+            filtered_path = [item for item in path if item in item_counts]
+            filtered_path.sort(key=lambda item: item_counts[item], reverse=True)
+            if filtered_path:
+                transactions.append(filtered_path * count)
 
-    def mine_patterns(self):
+        # Flatten transactions
+        flattened = []
+        for t in transactions:
+            flattened.append(t)
+
+        return FPTree(flattened, self.min_support)
+
+    def mine_patterns(self, suffix=None):
+        if suffix is None:
+            suffix = []
+
         patterns = {}
-        conditional_pattern_bases = {}
-        conditional_fp_trees = {}
-        frequent_patterns = {}
+        items = sorted(self.header_table.items(), key=lambda x: x[1][0])  # sort by support ascending
 
-        items = sorted(self.header_table.items(), key=lambda x: x[1][0])
         for item, (support, node) in items:
+            new_suffix = suffix + [item]
+            patterns[tuple(new_suffix)] = support
+
             conditional_patterns = []
-            while node is not None:
+            while node:
                 path = []
                 parent = node.parent
-                while parent and parent.item_name is not None:
+                while parent and parent.item_name:
                     path.append(parent.item_name)
                     parent = parent.parent
                 if path:
                     conditional_patterns.append((path[::-1], node.count))
                 node = node.link
 
-            conditional_pattern_bases[item] = conditional_patterns
             conditional_tree = self.build_conditional_tree(conditional_patterns)
-            conditional_fp_trees[item] = self.tree_to_string(conditional_tree.root) if conditional_tree else ""
 
-            if conditional_tree:
-                _, _, subtree_patterns = conditional_tree.mine_patterns()
-                for pattern, count in subtree_patterns.items():
-                    full_pattern = tuple(list(pattern) + [item])
-                    patterns[full_pattern] = count
-                    frequent_patterns[full_pattern] = count
+            if conditional_tree and conditional_tree.root:
+                subtree_patterns = conditional_tree.mine_patterns(new_suffix)
+                patterns.update(subtree_patterns)
 
-            patterns[(item,)] = support
-            frequent_patterns[(item,)] = support
-
-        return conditional_pattern_bases, conditional_fp_trees, frequent_patterns
+        return patterns
 
 # ===================== Association Rules =====================
 from itertools import combinations
@@ -121,17 +127,18 @@ def generate_association_rules(frequent_patterns, min_confidence_percent):
     min_confidence = min_confidence_percent / 100.0
     rules = []
     itemset_support = {frozenset(itemset): support for itemset, support in frequent_patterns.items()}
-    for itemset, support in frequent_patterns.items():
+
+    for itemset in itemset_support:
         if len(itemset) > 1:
-            items = list(itemset)
-            for i in range(1, len(items)):
-                for antecedent in combinations(items, i):
+            for i in range(1, len(itemset)):
+                for antecedent in combinations(itemset, i):
                     antecedent = frozenset(antecedent)
-                    consequent = frozenset(itemset) - antecedent
+                    consequent = itemset - antecedent
                     if consequent and antecedent in itemset_support:
-                        confidence = itemset_support[frozenset(itemset)] / itemset_support[antecedent]
+                        confidence = itemset_support[itemset] / itemset_support[antecedent]
                         if confidence >= min_confidence:
-                            rules.append((set(antecedent), set(consequent), round(confidence*100, 2), support))
+                            rules.append((set(antecedent), set(consequent), round(confidence*100, 2), itemset_support[itemset]))
+
     return rules
 
 # ===================== Streamlit App =====================
