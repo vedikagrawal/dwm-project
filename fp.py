@@ -150,7 +150,7 @@ if uploaded_file:
     total_transactions = len(transactions)
     st.info(f"Total Transactions: {total_transactions}")
 
-    min_support_count = st.number_input("Enter Minimum Support Count", min_value=1, max_value=total_transactions, value=2)
+    min_support_count = int(st.number_input("Enter Minimum Support Count", min_value=1, max_value=total_transactions, value=2))
     min_conf_percent = st.number_input("Enter Minimum Confidence (%)", min_value=1, max_value=100, value=70)
 
     if st.button("Run FP-Growth"):
