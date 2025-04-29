@@ -18,7 +18,7 @@ class FPNode:
         self.count += count
 
 class FPTree:
-    def _init_(self, transactions, min_support):
+    def __init__(self, transactions, min_support):
         self.root = FPNode(None, 1, None)
         self.header_table = {}
         self.min_support = min_support
@@ -132,7 +132,7 @@ st.set_page_config(page_title="FP-Growth Frequent Itemsets", layout="wide")
 st.title("FP-Growth Frequent Itemsets Mining")
 
 st.markdown("""
-Upload a Transaction CSV and discover Frequent Itemsets and Conditional FP-Trees using the *FP-Growth* algorithm.
+Upload a *Transaction CSV* and discover *Frequent Itemsets* and *Conditional FP-Trees* using the **FP-Growth** algorithm.
 """)
 
 uploaded_file = st.file_uploader("Upload Transaction CSV", type=["csv"])
@@ -186,3 +186,21 @@ if uploaded_file:
             st.download_button("Download Association Rules", rules_df.to_csv(index=False), file_name="association_rules.csv")
         else:
             st.info("No strong rules generated based on the given minimum confidence.")
+
+        # ======= Plotting Frequent Items =======
+        st.write("### Frequent Items Plot")
+        item_supports = {item[0]: support for item, support in frequent_patterns.items() if len(item) == 1}
+        if item_supports:
+            sorted_items = sorted(item_supports.items(), key=lambda x: x[1], reverse=True)
+            items, supports = zip(*sorted_items)
+
+            fig, ax = plt.subplots(figsize=(6, 3))
+            ax.bar(items, supports, color='skyblue')
+            ax.set_xlabel('Items', fontsize=12)
+            ax.set_ylabel('Support Count', fontsize=12)
+            ax.set_title('Frequent Items', fontsize=14)
+            plt.xticks(rotation=45)
+            plt.tight_layout()
+            st.pyplot(fig)
+        else:
+            st.info("No frequent individual items to display.")
