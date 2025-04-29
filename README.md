@@ -1,7 +1,7 @@
-## FP-Growth Frequent Itemsets Mining
+# FP-Growth Frequent Itemsets Mining
 This project provides an interactive Streamlit web application that enables users to perform frequent itemset mining using the FP-Growth algorithm. It allows for the analysis of transactional data to discover frequent patterns and generate association rules.​
 
-## Features
+# Features
 FP-Growth Algorithm: Efficiently mines frequent itemsets from transactional data.
 Conditional Pattern Bases and FP-Trees: Visual representation of conditional patterns and their corresponding FP-Trees.
 Association Rule Generation: Derives association rules from frequent itemsets with user-defined confidence thresholds.
@@ -9,26 +9,26 @@ Data Visualization: Displays frequent items and their support counts using bar c
 Interactive Interface: User-friendly Streamlit interface for data upload, parameter selection, and result visualization.
 
 
-## Demo
-## Installation
+# Demo
+# Installation
 
-# Clone the repository:
+## Clone the repository:
 
 git clone https://github.com/vedikagrawal/dwm-project.git
 cd dwm-project
 
-# Clone the repository:Create a virtual environment (optional but recommended):
+## Clone the repository:Create a virtual environment (optional but recommended):
 
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-# Clone the repository:Install the required packages:
+## Clone the repository:Install the required packages:
 
 pip install -r requirements.txt
 
 ### Usage
 
-# Prepare your transactional data:
+## Prepare your transactional data:
 Ensure your CSV file has a column where each row represents a transaction, and items are comma-separated. For example:
 
 Transaction
@@ -36,11 +36,11 @@ milk,bread,eggs
 bread,butter
 milk,bread,butter,eggs
 
-# Run the Streamlit application:
+## Run the Streamlit application:
 
 streamlit run fp.py
 
-# Interact with the application:
+## Interact with the application:
 
 Upload your CSV file.
 Select the column containing transaction data.
