@@ -68,3 +68,4 @@ This project is licensed under the MIT License.​
 # Acknowledgements
 This project was developed as part of the Data Warehousing and Mining (DWM) course to demonstrate the application of the FP-Growth algorithm in mining frequent itemsets and generating association rules.​
 
+![image](https://github.com/user-attachments/assets/a99eb247-28e5-4323-bd7a-cf6e2dcfb60f)
