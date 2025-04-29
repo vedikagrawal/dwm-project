@@ -48,3 +48,23 @@ Set the minimum support count and confidence percentage.
 Click on "Run FP-Growth" to process the data.
 View the generated frequent itemsets, conditional pattern bases, FP-Trees, and association rules.
 Download the results as CSV files.​
+
+# Dependencies
+
+Python 3.7 or higher
+Streamlit
+pandas
+matplotlib​
+
+Install all dependencies using the provided requirements.txt file.​
+GitHub
+
+# Contributing
+Contributions are welcome! If you have suggestions for improvements or encounter any issues, please open an issue or submit a pull request.​
+
+# License
+This project is licensed under the MIT License.​
+
+# Acknowledgements
+This project was developed as part of the Data Warehousing and Mining (DWM) course to demonstrate the application of the FP-Growth algorithm in mining frequent itemsets and generating association rules.​
+
